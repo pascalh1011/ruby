@@ -19,5 +19,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'eventmachine'
   s.add_dependency 'net-http-persistent'
   s.add_dependency 'json'
+  s.add_dependency 'multi_json'
 
 end
