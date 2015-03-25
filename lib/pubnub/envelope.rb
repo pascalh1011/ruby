@@ -3,6 +3,7 @@ module Pubnub
 
     INSTANCE_VARIABLES = [
         :channel,
+        :channel_group,
         :error,
         :error_message,
         :first,
@@ -13,11 +14,12 @@ module Pubnub
         :object,
         :payload,
         :response,
+        :parsed_response,
         :response_message,
         :service,
         :status,
         :timetoken,
-        :timetoken_update,
+        :timetoken_update
     ]
 
     INSTANCE_VARIABLES.each do |var_name|

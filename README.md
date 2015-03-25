@@ -1,29 +1,42 @@
 # Please direct all Support Questions and Concerns to Support@PubNub.com
 
+## PubNub Gem version 3.7.1
+
 ##### YOU MUST HAVE A PUBNUB ACCOUNT TO USE THE API.
 ##### http://www.pubnub.com/account
 
-## PubNub Gem version 3.5.0
-
 www.pubnub.com - PubNub Real-time Push Service in the Cloud.
+
 
 The PubNub Network is a blazingly fast Global Messaging Service for building real-time web and mobile apps. Thousands of apps and developers rely on PubNub for delivering human-perceptive real-time experiences that scale to millions of users worldwide. PubNub delivers the infrastructure needed to build amazing Mobile, MMO games, social apps, business collaborative solutions, and more.
 
+### Upgrading from PubNub 3.5.x
+
+We've made the response format compatible across all operations. This may break existing parsing of whereNow, leave, state, and PAM responses. So if you are monitoring these operation responses, please be sure to modify your code accordingly.
+
+Examples of affected operations can be found [here](3.5_to_3.6_upgrade_notes.md).
+
 ### Upgrading from PubNub 3.3.x and Earlier
-PubNub 3.5.0 is NOT compatible with earlier than 3.4 versions of Pubnub Ruby Client.
+PubNub 3.7.1 is NOT compatible with earlier than 3.4 versions of Pubnub Ruby Client.
 
-### Upgrading from PubNub 3.4
-PubNub 3.5.0 is compatible with 3.4 version.
+### Upgrading from PubNub 3.4 and higher versions
+PubNub 3.7.1 is compatible with 3.4 version.
 
-#### Asynchronous vs Synchronous Responses
-Every event you will fire could be fired asynchronous or synchonous just by passing 
+## Important Notice about Blocking vs Non-Blocking Calls
+
+#### Asynchronous vs Synchronous Requests
+Every operation is by default asynchronous. Asynchronous operations will not block your main thread and will be fired within a new thread.
+
+This can cause issues under certain situations, depending on your implementation. To work around this, you can force an operation to run synchronously (block) via the :http_sync option:
+
 ```ruby
-:http_sync
+:http_sync => true
 ```
-set to true to that event. Asynchronous events will not block your main thread and will be fired withing new thread.
+
+Unless otherwise specified, this option is default implied false (all calls by default will be async).
 
 #### Message Handling: callback, block, return
-Results are provided via block, callback, and return, depending on how you structure the call. Callback will be fired for every message that will event get in response. Synchornous events will return array of envelopes (if you passed callback to sychronous event it will be called too!).
+Results are provided via block, callback, and return, depending on how you structure the call. Callback will be fired for every message that will event get in response. Synchronous events will return array of envelopes (if you passed callback to sychronous event it will be called too!).
 
 ### Code Examples
 
@@ -42,7 +55,6 @@ my_logger = Logger.new(STDOUT)
 pubnub = Pubnub.new(
     :subscribe_key    => 'demo',
     :publish_key      => 'demo',
-    :origin           => origin,
     :error_callback   => lambda { |msg|
       puts "Error callback says: #{msg.inspect}"
     },
@@ -126,7 +138,6 @@ envelopes.each do |envelope|
 end
 ```
 
-
 #### The Envelope Object
 The callback (or block) will receive the message(s) in the form of an envelope hash. An envelope will contain the following keys:
 
@@ -142,7 +153,7 @@ The callback (or block) will receive the message(s) in the form of an envelope h
 
 Don't confuse the **message** with the **response**. In a given callback cycle, the **response** will always be the same, as its the raw server response. It may consist of one or more messages.
 
-Internally, the block or callback is iterates over the response array, similar to:
+Internally, the block or callback iterates over the response array, similar to:
 
 ```ruby
 envelopes.each do |envelope|
@@ -150,7 +161,7 @@ envelopes.each do |envelope|
 end
 ```
 
-In a given callback cycle, the **envelope** will be the currently iterated envelopes item of the response.
+In a given callback cycle, the **envelope** will be the current element of the response array.
 
 ### Simple Usage Examples
 
@@ -194,6 +205,42 @@ pubnub.subscribe(
 )
 ```
 
+#### Leave
+Unsubscribes from given channel (`:channel`) or channel group (`:group`) and 
+fires leave event. You need to be subscribed (only async counts) to channel that 
+You want to leave.
+
+```ruby
+pubnub.subscribe(
+    :channel  => :hello_world,
+    :callback => @my_callback
+)
+
+pubnub.leave(
+    :channel => :hello_world,
+    :callback => @my_callback
+)
+```
+
+If you want to force leave channel that you're not subscribed to, you can pass :force option to event
+
+```ruby
+# Wrong
+pubnub.leave(
+    :channel => :not_subbed_channel,
+    :callback => @my_callback
+)
+# We'll get error:
+Pubnub::ArgumentError: You cannot leave channel that is not subscribed
+
+# Good
+p.leave(
+    :channel => :force_leave,
+    :force => true,
+    :callback => @my_callback
+)
+```
+
 #### History
 Retrieve previously published messages (requires activation via admin.pubnub.com)
 Optional start, end, and reverse option usage can be found in the tests.
@@ -216,8 +263,16 @@ pubnub.presence(
 )
 ```
 
+```ruby
+pubnub.presence(
+    :group    => 'foo:',
+    :callback => @my_callback
+)
+```
+
 #### HereNow
-See who is "here now" in a channel at this very moment.
+See who is "here now" in a channel (:channel) or channel group (:group) at this
+very moment.
 
 ```ruby
 pubnub.here_now(
@@ -226,9 +281,26 @@ pubnub.here_now(
 )
 ```
 
+```ruby
+pubnub.here_now(
+    :group    => channel_group,
+    :callback => @my_callback
+)
+```
+
+#### WhereNow
+See where is client with specific uuid
+
+```ruby
+p.where_now(
+    :uuid => :my_friend,
+    :callback => @my_callback
+)
+```
+
 #### UUID
 
-Session-UUID is automatic, so you will probably not end up ever using this. But if you need a UUID...
+UUID is set in the initializer. A unique one is created, unless you specify one explicitly. To retrieve the current UUID:
 
 ```ruby
 pubnub.uuid
@@ -244,13 +316,123 @@ Get the current PubNub time. This is great to use as a "PubNub Ping"
 pubnub.time("callback" => @my_callback)
 ```
 
+### Channel Groups
+
+Channel grouping is new feature introduced in Pubnub 3.7. It allows to group
+channels into channel-groups and channel-groups into namespaces. For example you
+can add `weather` and `sport` channel to `news` channel group, and `news` and
+`local_ads` to `tv` namespace. Namespaces and channel groups are described as 
+`namespace:channel_group` e.g. `tv:news`. All channel-groups in namespace are 
+described as `namespace:` e.g. `tv:`. Non-namespaced channel groups are
+described as `non-namespaced-channel-group` eg. `global_alerts`.
+
+All channel groups specific operations can be issued with
+`#channel_registration` method.
+
+#### Getting info
+
+##### Getting all non-namespaced channel groups
+
+```ruby
+# Response envelope will hold info as hash in payload attribute.
+pubnub.channel_registration(action: :list_groups, http_sync: true)
+```
+
+##### Getting all channel groups in given namespace
+
+```ruby
+# Response envelope will hold info as hash in payload attribute.
+pubnub.channel_registration(action: :get, group: 'foo:', http_sync: true)
+```
+
+##### Getting all channels in channel group
+
+```ruby
+# Response envelope will hold info as hash in payload attribute.
+pubnub.channel_registration(action: :get, group: 'foo:foo', http_sync: true)
+```
+
+#### Adding
+
+##### Add channel to namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :add, group: 'foo:new_group', channel: :bot, http_sync: true)
+```
+
+##### Add channel to non-namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :add, group: 'new_group', channel: :bot, http_sync: true)
+```
+
+#### Removing
+
+##### Remove namespace and all channel groups
+
+```ruby
+pubnub.channel_registration(action: :remove, group: 'foo:', http_sync: true)
+```
+
+##### Remove namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :remove, group: 'foo:cg', http_sync: true)
+```
+
+##### Remove non-namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :remove, group: 'cg', http_sync: true)
+```
+
+##### Remove channel from namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :remove, group: 'foo:cg', channel: :to_remove, http_sync: true)
+```
+
+##### Remove channel from non-namespaced channel group
+
+```ruby
+pubnub.channel_registration(action: :remove, group: 'cg', channel: :to_remove, http_sync: true)
+```
+
 ### PAM
 
-Developers can grant fine-grained Publish/Subscribe permissions for their real-time apps and data, without hosting authentication services Access control can be granted at various levels.
+Developers can grant/revoke/audit fine-grained permissions for their real-time apps and data at various levels.
 
 Envelopes returned by PAM events have additional :service and :payload keys.
 
 #### PAM Usage Examples
+
+When you issue a PAM operation, you can pass the `presence` key, the 'channel' key, or both. 
+
+```ruby
+# Will grant :r and :w permissions to demo-pnpres channel
+pubnub.grant(:presence => :demo) do |envelope|
+  puts envelope.message
+end
+
+# Will grant :r and :w permissions to demo channel
+pubnub.grant(:channel => :demo) do |envelope|
+  puts envelope.message
+end
+
+# Will grant :r and :w permissions to demo and demo-pnpres channels
+pubnub.grant(:presence => :demo, :channel => :demo) do |envelope|
+  puts envelope.message
+end
+
+# For channel groups, all above work.
+# But channel groups additionally have :manage option.
+
+# Will grant :r, :w and :m permissions to foo:foo
+pubnub.grant(:group => 'foo:foo') do |envelope|
+  puts envelope.message
+end
+
+```
 
 ##### Audit
 Audits auths for given parameters
@@ -279,7 +461,7 @@ end
 ```
 
 ##### Revoke
-Revokes right to read and write
+Revokes right to read and write. Same as granting r:0 w:0.
 
 ```ruby
 pubnub.revoke(:channel => :forbidden) do |envelope|
@@ -290,7 +472,6 @@ pubnub.grant(:channel => :forbidden, :auth_key => :godzilla) do |envelope|
   puts envelope.payload
 end
 ```
-
 
 ### Advanced Usage Examples
 
@@ -313,10 +494,14 @@ pubnub = Pubnub.new(
 )
 ```
 
+###### Custom logger
+You can pass your custom logger as :logger key while creating new Pubnub instance. Logger invocations has set progname 'Pubnub'.
+
 ##### Publish
 ```ruby
 # Message could be any object that have .to_json method
-# You do not need to jsonify message before sending
+# You do not need to jsonify message before sending!
+
 # This time publish event will block main thread until callback will finish as we set :http_sync to true
 pubnub.publish(
   :messsage => message,
@@ -350,9 +535,22 @@ pubnub.subscribe(
 ) do |envelope|
   puts envelope.message['attacker']
   puts envelope.message['defender']
-  puts envelope.message['demage']
+  puts envelope.message['damage']
 end
 ```
+
+###### Channel groups
+You can subscribe to channel group same way as You're subscribing to channels.
+
+```ruby
+pubnub.subscribe(group: 'foo:foo', channel: :ping_3, callback: callback)
+```
+
+Response envelopes will hold channel and channel_group values. So, if You want
+to subscribe to channel group and your callback need to know where are envelopes
+from, You can check it using `envelope.channel_group`. Of course You can
+subscribe to channel group and plain channel at once.
+
 
 ##### History
 History returns :count messages from given channel.
@@ -379,10 +577,23 @@ pubnub.history(
 ```
 History envelope also contains .history_start and .history_end values
 
+##### Paged History
+
+Paginate through your history. You can pass `:channel`, `:page`, `:limit`, `:callback`, `:http_sync`, `:start` and `:end` options, all of them works like in history event.
+
+```ruby
+pubnub.paged_history(
+  :channel   => :actions,
+  :limit     => 10,
+  :page      => 3,
+  :http_sync => true
+)
+```
+
 ##### Presence
 Presence works exactly the same way as subscribe, it just adds '-pnpres' to channel name.
 ```ruby
-pubnub.subscribe(
+pubnub.presence(
   :channel => :mars
 ) do |envelope|
   show_in_roster(envelope.uuid)
@@ -395,13 +606,46 @@ HereNow shows us who is currently subscribing channel and how much clients are o
 pubnub.here_now(
   :channel => :pamam_moon_iv
 ) do |envelope|
-  puts envelope.msg['uuids']
-  puts envelope.msg['occupancy']
+  puts envelope.parsed_response['uuids']
+  puts envelope.parsed_response['occupancy']
 end
 ```
+
+You can also give no specific channel. Then you'll get global HereNow event response which holds all channels.
+
+```ruby
+pubnub.here_now { |envelope| puts envelope.parsed_response['channels'] }
+```
+
+
+##### Heartbeat
+
+Heartbeat (expressed in seconds) is used to signal to the server that the client is still online. If the client disconnects without a leave event, others observing presence on the channel will not notice that this client has left the channel until a maximum of heartbeat interval seconds.
+
+You normally will never need to touch this value, unless your Ruby client resides on a poor or mobile connection.
+
+```ruby
+pubnub = Pubnub.new(:subscribe_key => 'demo', :heartbeat => 60)
+```
+
+Update it via heartbeat= and set_heartbeat()
+```ruby
+pubnub.heartbeat = 120
+pubnub.set_heartbeat 240
+```
+
+Read it via heartbeat and get_heartbeat()
+```ruby
+pubnub.heartbeat
+pubnub.get_heartbeat
+```
+
 #### Pam
 PAM allows you to grant read and write access basing on channels and auth_keys.
 Every pam event requires :secret_key (Remember! You should set it while initializing pubnub)
+
+PAM actions could take :presence option, that will grant/revoke/audit permissions on given presence channel.
+:presence option can be used along with :channel.
 
 ##### Audit
 ```ruby
@@ -419,7 +663,7 @@ pubnub.grant(:channel => 'hidden_system', :read => true, :write => false, :auth_
 ```
 
 ##### Revoke
-Works like grant but revokes all previously given privilages
+Revoke is equal to grant with w false, read false
 ```ruby
 # Channel level
 pubnub.revoke(:channel => 'hidden_system'){ |envelope| puts envelope.msg }
@@ -427,6 +671,34 @@ pubnub.revoke(:channel => 'hidden_system'){ |envelope| puts envelope.msg }
 # Auth key level
 pubnub.revoke(:channel => 'hidden_system', :auth_key => :lemon){ |envelope| puts envelope.msg }
 ```
+
+### State
+State is stored on the server for subscribed uuid, you can pass state in few ways and you can get it from server.
+
+#### Setting state
+```ruby
+# You can set state in a few ways
+# Using subscribe
+pubnub.subscribe(:channel => 'my_channel', :state => {:my_channel => {:key => :value}}){ |e| puts e.msg }
+# Be aware that state have to be hash of hashes where keys are subscribed channel names
+
+# Using event #set_state
+pubnub.set_state(:state => {:key => :value}, :channel => :my_channel, :http_sync => true)
+
+# or with channel groups
+pubnub.set_state(:state => {:key => :value}, :group => 'foo:foo', :http_sync => true)
+
+```
+
+#### Getting state
+```ruby
+# All you need to know is just uuid and channel
+pubnub.state(:uuid => 'uuid_client_that_i_am_searching_for', :http_sync => true)
+```
+
+#### State and channel groups
+State works fine with channel groups too! Just pass the `:group` key when
+setting or do it while subscribing.
 
 ### Other
 

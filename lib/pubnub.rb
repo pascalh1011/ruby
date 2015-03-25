@@ -6,7 +6,7 @@
 ## http://www.pubnub.com/
 
 ## -----------------------------------
-## PubNub 3.5.1 Real-time Push Cloud API
+## PubNub Real-time Push Cloud API
 ## -----------------------------------
 
 require 'json'
@@ -17,8 +17,7 @@ require 'eventmachine'
 require 'net/http/persistent'
 require 'logger'
 
-require 'version'
-
+require 'pubnub/version'
 require 'pubnub/client'
 
 
@@ -44,6 +43,8 @@ end
 
 module Pubnub
   class << self
+    attr_accessor :logger
+
     def new(options = {})
       Pubnub::Client.new(options)
     end

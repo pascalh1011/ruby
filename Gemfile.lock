@@ -1,10 +1,10 @@
 PATH
   remote: .
   specs:
-    pubnub (3.5.7)
-      eventmachine
-      json
-      net-http-persistent
+    pubnub (3.7.0)
+      eventmachine (~> 1.0)
+      json (~> 1.8)
+      net-http-persistent (~> 2.9)
 
 GEM
   remote: https://rubygems.org/
@@ -15,8 +15,9 @@ GEM
     crack (0.4.2)
       safe_yaml (~> 1.0.0)
     diff-lcs (1.2.5)
-    eventmachine (1.0.3)
-    json (1.8.1)
+    eventmachine (1.0.7)
+    json (1.8.2)
+    memory_profiler (0.0.4)
     method_source (0.8.2)
     net-http-persistent (2.9.4)
     pry (0.10.0)
@@ -32,6 +33,7 @@ GEM
     rspec-expectations (2.14.5)
       diff-lcs (>= 1.1.3, < 2.0)
     rspec-mocks (2.14.6)
+    ruby-prof (0.15.3)
     safe_yaml (1.0.3)
     slop (3.5.0)
     vcr (2.9.2)
@@ -44,9 +46,12 @@ PLATFORMS
 
 DEPENDENCIES
   awesome_print
+  bundler (~> 1.6)
+  memory_profiler
   pry
   pubnub!
   rr
   rspec (= 2.14)
+  ruby-prof
   vcr
   webmock
